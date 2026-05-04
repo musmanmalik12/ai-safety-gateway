@@ -6,10 +6,14 @@ services:
       context: .
       dockerfile: ./services/api/Dockerfile
     ports:
-      - "3000:3000"
+      - "${API_PORT:-3000}:3000"
     depends_on:
       - redis
       - db
+    restart: unless-stopped
+    environment:
+      - DB_URL=${DB_URL}
+      - REDIS_ADDR=${REDIS_ADDR}
 
   worker:
     build:
@@ -18,19 +22,25 @@ services:
     depends_on:
       - redis
       - db
+    restart: unless-stopped
+    environment:
+      - DB_URL=${DB_URL}
+      - REDIS_ADDR=${REDIS_ADDR}
 
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
 
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: scanner
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
+    restart: unless-stopped
     volumes:
       - ./infra/sql/init.sql:/docker-entrypoint-initdb.d/init.sql

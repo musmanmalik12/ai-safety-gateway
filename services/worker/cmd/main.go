@@ -6,65 +6,69 @@ import (
 	"log"
 	"time"
 
+	"compliance-scanner.local/worker/internal/config"
 	"github.com/hibiken/asynq"
-
-	"compliance-scanner.local/shared/db"
 )
 
 type ScanPayload struct {
-	JobID string `json:"job_id"`
+	JobID     string `json:"job_id"`
+	RequestID string `json:"request_id"`
 }
 
-func handleScanTask(ctx context.Context, t *asynq.Task) error {
+type Processor struct {
+	container *config.Container
+}
+
+func NewProcessor(c *config.Container) *Processor {
+	return &Processor{container: c}
+}
+
+func (p *Processor) HandleScanTask(ctx context.Context, t *asynq.Task) error {
 	var payload ScanPayload
 
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
 
-	jobID := payload.JobID
+	log.Printf("[WORKER] request_id=%s job_id=%s START", payload.RequestID, payload.JobID)
 
-	log.Println("Processing job:", jobID)
-
-	// 1. Update status → processing
-	_, err := db.DB.Exec(ctx,
+	// update to processing
+	_, err := p.container.DB.Exec(ctx,
 		`UPDATE scan_jobs SET status=$1, updated_at=NOW() WHERE id=$2`,
-		"processing", jobID,
+		"processing", payload.JobID,
 	)
 	if err != nil {
 		return err
 	}
 
-	// 2. Simulate work (your "scanner engine")
+	// simulate work
 	time.Sleep(5 * time.Second)
 
-	// 3. Update status → completed
-	_, err = db.DB.Exec(ctx,
+	// update to completed
+	_, err = p.container.DB.Exec(ctx,
 		`UPDATE scan_jobs SET status=$1, updated_at=NOW() WHERE id=$2`,
-		"completed", jobID,
+		"completed", payload.JobID,
 	)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Completed job:", jobID)
+	log.Printf("[WORKER] request_id=%s job_id=%s DONE", payload.RequestID, payload.JobID)
+
 	return nil
 }
 
 func main() {
 	log.Println("Worker started...")
 
-	db.Connect("postgres://postgres:postgres@db:5432/scanner")
-
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: "redis:6379"},
-		asynq.Config{Concurrency: 10},
-	)
+	// Initialize dependency injection container
+	container := config.NewContainer()
+	processor := NewProcessor(container)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc("scan:process", handleScanTask)
+	mux.HandleFunc("scan:process", processor.HandleScanTask)
 
-	if err := srv.Run(mux); err != nil {
+	if err := container.Server.Run(mux); err != nil {
 		log.Fatal(err)
 	}
 }
