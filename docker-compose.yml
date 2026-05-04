@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  api:
+    build: ./services/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - db
+
+  worker:
+    build: ./services/worker
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: scanner
+    ports:
+      - "5432:5432"
