@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	compliance-scanner.local/shared v0.0.0
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/hibiken/asynq v0.26.0
