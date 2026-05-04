@@ -1,8 +1,8 @@
 package main
 
 import (
-	"compliance-scanner/api/internal/db"
-	"compliance-scanner/api/internal/handlers"
+	"compliance-scanner.local/api/internal/handlers"
+	"compliance-scanner.local/shared/db"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,8 +1,10 @@
-FROM golang:1.25-alpine
+FROM golang:1.26-alpine
 
 WORKDIR /app
 
 COPY . .
+
+WORKDIR /app/services/api
 
 RUN go build -o main ./cmd
 
