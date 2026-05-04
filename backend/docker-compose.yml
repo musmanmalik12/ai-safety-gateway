@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./services/api/Dockerfile
+    ports:
+      - "${API_PORT:-8080}:3000"
+    depends_on:
+      - redis
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_URL=${DB_URL}
+      - REDIS_ADDR=${REDIS_ADDR}
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./services/worker/Dockerfile
+    depends_on:
+      - redis
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_URL=${DB_URL}
+      - REDIS_ADDR=${REDIS_ADDR}
+
+  redis:
+    image: redis:7
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    restart: unless-stopped
+    volumes:
+      - ./infra/sql/init.sql:/docker-entrypoint-initdb.d/init.sql

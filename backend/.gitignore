@@ -1,0 +1,33 @@
+# Binaries
+*.exe
+*.out
+*.bin
+main
+
+# Go build artifacts
+/bin/
+/dist/
+
+# Go modules
+vendor/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.example
+
+# Docker
+*.log
+
+# Node (future-proofing if needed)
+node_modules/
+
+# Test output
+coverage.out
