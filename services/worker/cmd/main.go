@@ -1,8 +1,12 @@
 package main
 
-import "log"
+import (
+	"log"
+)
 
 func main() {
 	log.Println("Worker started...")
-	select {} // keeps it running
+
+	forever := make(chan struct{})
+	<-forever
 }
