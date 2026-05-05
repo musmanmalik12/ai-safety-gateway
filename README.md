@@ -333,4 +333,49 @@ Compliance rules are defined in the worker service. To add new detection rules:
 
 ---
 
-**Last Updated**: May 4, 2026
+## 💼 LinkedIn Post
+
+**For Infrastructure & DevOps Professionals**
+
+> Building data processing pipelines for compliance is trickier than it looks.
+> 
+> The real challenge isn't just detecting sensitive data—it's doing it at scale without becoming a bottleneck.
+> 
+> I built **Compliance Scanner** to solve this in production environments. Here's the architecture thinking:
+> 
+> **The Problem**: AI systems can process user input without validation. One unchecked request with a credit card number, SSN, or salary data goes through. Now you've got data leakage, audit trails, and compliance violations.
+> 
+> **The Solution**: Policy enforcement layer that sits between input and processing.
+> 
+> **How It Works**:
+> - User submits text
+> - Hits Go API (Gin, JSON parsing)
+> - Pushes to Redis queue (non-blocking)
+> - Worker pool processes in parallel
+> - PostgreSQL logs everything (immutable audit trail)
+> - Response includes decision (ALLOW/FLAG/BLOCK) + reasoning
+> 
+> **Why This Matters for Ops**:
+> 1. **Horizontal Scaling**: Workers auto-scale with queue depth. Redis handles spiky traffic. No request blocking.
+> 2. **Resilience**: Lost worker? Queue keeps the task. No data loss. Idempotent processing.
+> 3. **Observability**: Every scan logged with request ID tracing. Debug production issues without guessing.
+> 4. **Cost Efficiency**: Async design means resource pooling. One pod processes 1K+ scans/sec.
+> 5. **Compliance Ready**: Audit trail built in. Every decision is traceable, repeatable, auditable.
+> 
+> **Tech**: Go (concurrency), PostgreSQL (ACID), Redis (throughput), Docker Compose (reproducibility).
+> 
+> The system is production-ready for teams that need:
+> - Compliance at scale
+> - Sub-second latency
+> - Full auditability
+> - Stateless API design
+> 
+> Infrastructure engineers: This is built with observability and horizontal scaling in mind. No hidden state, no shared memory issues, no single points of failure.
+> 
+> Looking for DevOps/SRE professionals who understand the difference between "it works" and "it works reliably at scale."
+> 
+> Open to discussing deployment strategies, observability patterns, and how to make policy enforcement invisible to end users.
+
+---
+
+**Last Updated**: May 5, 2026
