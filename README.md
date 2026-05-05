@@ -1,8 +1,8 @@
-# Compliance Scanner
+# AI Safety Gateway
 
 A production-ready, scalable system for scanning text submissions to detect compliance risks, PII, and policy violations. Built with Go, PostgreSQL, Redis, and Next.js.
 
-## 📋 Overview
+## Overview
 
 The Compliance Scanner is a distributed system designed to process large volumes of text submissions for compliance and security risks. It features:
 
@@ -15,7 +15,7 @@ The Compliance Scanner is a distributed system designed to process large volumes
 - **Persistent Storage**: PostgreSQL audit trail of all scan results
 - **Web UI**: Interactive frontend for testing and management
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 User Submission (Frontend) 
@@ -43,7 +43,7 @@ Results Returned to Frontend
 | Database | PostgreSQL | 5432 | Persistent job storage & results |
 | Cache & Queue | Redis | 6379 | Task queuing & caching |
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -56,8 +56,6 @@ Results Returned to Frontend
 # Start entire stack
 docker-compose up --build
 
-# Access frontend at http://localhost:3000
-# API available at http://localhost:8080
 ```
 
 Environment variables are defined in `.env` (create if needed):
@@ -79,29 +77,6 @@ REDIS_PORT=6379
 DB_URL=postgres://compliance_user:securepassword@db:5432/compliance_db
 ```
 
-### Option 2: Manual Local Development
-
-#### Backend Setup
-
-```bash
-cd backend
-
-# Start dependencies (PostgreSQL, Redis)
-docker-compose up redis db -d
-
-# Configure database connection
-export DB_URL="postgres://compliance_user:securepassword@localhost:5432/compliance_db"
-export REDIS_ADDR="localhost:6379"
-
-# Run API service
-cd services/api
-go run ./cmd/main.go
-
-# In another terminal, run worker service
-cd services/worker
-go run ./cmd/main.go
-```
-
 #### Frontend Setup
 
 ```bash
@@ -119,7 +94,7 @@ npm run dev
 
 Frontend will be available at `http://localhost:3000`
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 compliance-scanner/
@@ -163,7 +138,7 @@ compliance-scanner/
 └── README.md (this file)
 ```
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Health Check
 ```bash
@@ -226,7 +201,7 @@ Response (completed):
 }
 ```
 
-## 🛠️ Development
+## Development
 
 ### Building Images
 
@@ -238,26 +213,6 @@ docker-compose build
 docker-compose build api
 docker-compose build worker
 ```
-
-### Running Tests
-
-```bash
-# Backend unit tests
-cd backend
-go test ./...
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-### Database Migrations
-
-Database schema is initialized via `infra/sql/init.sql` when the PostgreSQL container starts. For schema changes:
-
-1. Update `infra/sql/init.sql`
-2. Recreate the database volume: `docker-compose down -v`
-3. Restart: `docker-compose up`
 
 ### Logs
 
@@ -291,38 +246,9 @@ API_PORT=8080
 # Connection string (auto-constructed if using above)
 DB_URL=postgres://compliance_user:your_secure_password@db:5432/compliance_db
 ```
-
-## 📦 Deployment
-
-### Docker Compose (Development/Staging)
-
-```bash
-docker-compose up -d
 ```
 
-### Docker Compose with Frontend
-
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.frontend.yml up -d
-```
-
-### Production Considerations
-
-For production deployments:
-
-1. **Database**: Use managed PostgreSQL (AWS RDS, Azure Database, etc.)
-2. **Redis**: Use managed Redis (AWS ElastiCache, Azure Cache, etc.)
-3. **Secrets**: Use environment variables or secret managers (HashiCorp Vault, AWS Secrets Manager)
-4. **Scaling**: Use Kubernetes or container orchestration platforms
-5. **Monitoring**: Integrate with logging/monitoring solutions
-6. **HTTPS**: Configure TLS/SSL for API and frontend
-7. **Rate Limiting**: Implement rate limiting and authentication
-
-### Kubernetes Deployment
-
-Kubernetes manifests are available in `backend/infra/k8s/` for production deployments.
-
-## 📝 Adding Compliance Rules
+## Adding Compliance Rules
 
 Compliance rules are defined in the worker service. To add new detection rules:
 
@@ -333,49 +259,5 @@ Compliance rules are defined in the worker service. To add new detection rules:
 
 ---
 
-## 💼 LinkedIn Post
-
-**For Infrastructure & DevOps Professionals**
-
-> Building data processing pipelines for compliance is trickier than it looks.
-> 
-> The real challenge isn't just detecting sensitive data—it's doing it at scale without becoming a bottleneck.
-> 
-> I built **Compliance Scanner** to solve this in production environments. Here's the architecture thinking:
-> 
-> **The Problem**: AI systems can process user input without validation. One unchecked request with a credit card number, SSN, or salary data goes through. Now you've got data leakage, audit trails, and compliance violations.
-> 
-> **The Solution**: Policy enforcement layer that sits between input and processing.
-> 
-> **How It Works**:
-> - User submits text
-> - Hits Go API (Gin, JSON parsing)
-> - Pushes to Redis queue (non-blocking)
-> - Worker pool processes in parallel
-> - PostgreSQL logs everything (immutable audit trail)
-> - Response includes decision (ALLOW/FLAG/BLOCK) + reasoning
-> 
-> **Why This Matters for Ops**:
-> 1. **Horizontal Scaling**: Workers auto-scale with queue depth. Redis handles spiky traffic. No request blocking.
-> 2. **Resilience**: Lost worker? Queue keeps the task. No data loss. Idempotent processing.
-> 3. **Observability**: Every scan logged with request ID tracing. Debug production issues without guessing.
-> 4. **Cost Efficiency**: Async design means resource pooling. One pod processes 1K+ scans/sec.
-> 5. **Compliance Ready**: Audit trail built in. Every decision is traceable, repeatable, auditable.
-> 
-> **Tech**: Go (concurrency), PostgreSQL (ACID), Redis (throughput), Docker Compose (reproducibility).
-> 
-> The system is production-ready for teams that need:
-> - Compliance at scale
-> - Sub-second latency
-> - Full auditability
-> - Stateless API design
-> 
-> Infrastructure engineers: This is built with observability and horizontal scaling in mind. No hidden state, no shared memory issues, no single points of failure.
-> 
-> Looking for DevOps/SRE professionals who understand the difference between "it works" and "it works reliably at scale."
-> 
-> Open to discussing deployment strategies, observability patterns, and how to make policy enforcement invisible to end users.
-
----
 
 **Last Updated**: May 5, 2026
