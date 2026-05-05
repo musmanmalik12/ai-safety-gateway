@@ -32,5 +32,8 @@ func main() {
 	r.POST("/scan", handler.CreateScan)
 	r.GET("/scan/:id", handler.GetScanStatus)
 
+	// AI Safety Gateway endpoints
+	r.POST("/ai/process", handler.ProcessWithAI)
+
 	r.Run(":3000")
 }

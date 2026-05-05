@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { scanAPI, ScanResult } from '../lib/api';
+import { scanAPI, ScanResult, AIProcessResult } from '../lib/api';
 
 interface Alert {
   type: 'success' | 'error';
@@ -11,8 +11,10 @@ interface Alert {
 export default function ScannerComponent() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
   const [alert, setAlert] = useState<Alert | null>(null);
   const [results, setResults] = useState<ScanResult | null>(null);
+  const [aiResults, setAIResults] = useState<AIProcessResult | null>(null);
   const [scanStatus, setScanStatus] = useState<string>('');
   const [jobId, setJobId] = useState<string>('');
   const [isSystemOperational, setIsSystemOperational] = useState(true);
@@ -44,6 +46,7 @@ export default function ScannerComponent() {
   const clearForm = () => {
     setInputText('');
     setResults(null);
+    setAIResults(null);
     setJobId('');
     setScanStatus('');
   };
@@ -91,6 +94,7 @@ export default function ScannerComponent() {
 
     setIsLoading(true);
     setResults(null);
+    setAIResults(null);
 
     try {
       const response = await scanAPI.submitScan(trimmedText);
@@ -100,6 +104,34 @@ export default function ScannerComponent() {
     } catch (error) {
       showAlert('Failed to submit scan', 'error');
       setIsLoading(false);
+    }
+  };
+
+  const handleProcessWithAI = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const trimmedText = inputText.trim();
+    if (!trimmedText) {
+      showAlert('Please enter text to analyze', 'error');
+      return;
+    }
+
+    setIsAILoading(true);
+    setAIResults(null);
+
+    try {
+      const result = await scanAPI.processWithAISafety(trimmedText);
+      setAIResults(result);
+      
+      if (result.decision === 'BLOCK') {
+        showAlert('Request blocked: ' + result.block_reason, 'error');
+      } else {
+        showAlert('AI Safety processing complete', 'success');
+      }
+    } catch (error) {
+      showAlert('Failed to process with AI Safety', 'error');
+    } finally {
+      setIsAILoading(false);
     }
   };
 
@@ -254,11 +286,20 @@ export default function ScannerComponent() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isAILoading}
                   className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-slate-700 disabled:to-slate-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:shadow-red-500/30 flex items-center justify-center gap-2 uppercase tracking-wider text-sm"
                 >
                   {isLoading && <span className="spinner" />}
                   {isLoading ? 'Analyzing...' : 'Scan for Compliance'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProcessWithAI}
+                  disabled={isLoading || isAILoading}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-slate-700 disabled:to-slate-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:shadow-blue-500/30 flex items-center justify-center gap-2 uppercase tracking-wider text-sm"
+                >
+                  {isAILoading && <span className="spinner" />}
+                  {isAILoading ? 'Processing...' : 'Process with AI Safety'}
                 </button>
                 <button
                   type="button"
@@ -271,7 +312,7 @@ export default function ScannerComponent() {
             </form>
 
             {/* Results Section */}
-            {(results || isLoading) && (
+            {(results || isLoading || aiResults || isAILoading) && (
               <div className="mt-16 pt-12 border-t border-slate-700/50">
                 <h3 className="text-2xl font-black text-white mb-8 tracking-tight">ANALYSIS RESULTS</h3>
 
@@ -298,7 +339,7 @@ export default function ScannerComponent() {
                     </div>
                   </div>
 
-                  {/* Results Display */}
+                  {/* Regular Scan Results */}
                   {results && (
                     <>
                       {/* Risk Level */}
@@ -386,6 +427,84 @@ export default function ScannerComponent() {
                           </ul>
                         </div>
                       )}
+                    </>
+                  )}
+
+                  {/* AI Safety Results */}
+                  {aiResults && (
+                    <>
+                      <div className="border-t border-slate-700/50 pt-8 mt-8">
+                        <h4 className="text-xl font-black text-blue-400 mb-6 tracking-tight">AI SAFETY GATEWAY RESULTS</h4>
+                      </div>
+
+                      {/* AI Decision */}
+                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Decision</p>
+                        <span className={`inline-block px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-wider ${
+                          aiResults.decision === 'BLOCK' ? 'bg-red-950/50 text-red-300 border border-red-900/50' :
+                          aiResults.decision === 'FLAG' ? 'bg-amber-950/50 text-amber-300 border border-amber-900/50' :
+                          'bg-emerald-950/50 text-emerald-300 border border-emerald-900/50'
+                        }`}>
+                          {aiResults.decision}
+                        </span>
+                        {aiResults.block_reason && <p className="text-red-300 mt-4 text-sm">{aiResults.block_reason}</p>}
+                      </div>
+
+                      {/* Input Risk Assessment */}
+                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Input Risk Level</p>
+                        <div className={`inline-block px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-lg ${getRiskColor(aiResults.risk_level)}`}>
+                          {aiResults.risk_level}
+                        </div>
+                        {aiResults.flags.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Detected Flags</p>
+                            <div className="flex flex-wrap gap-2">
+                              {aiResults.flags.map((flag) => (
+                                <span key={flag} className="px-3 py-1 bg-red-950/50 text-red-300 rounded text-xs font-bold border border-red-900/50">
+                                  {flag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sanitized Prompt */}
+                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Sanitized Prompt</p>
+                        <div className="bg-slate-900 rounded-lg p-4 border border-slate-700 font-mono text-sm text-slate-300 break-words">
+                          {aiResults.sanitized_prompt}
+                        </div>
+                      </div>
+
+                      {/* AI Response */}
+                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">AI Response</p>
+                        <div className="bg-slate-900 rounded-lg p-4 border border-slate-700 font-mono text-sm text-slate-300 break-words">
+                          {aiResults.ai_response}
+                        </div>
+                      </div>
+
+                      {/* Output Risk Assessment */}
+                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Output Risk Level</p>
+                        <div className={`inline-block px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-lg ${getRiskColor(aiResults.output_risk_level)}`}>
+                          {aiResults.output_risk_level}
+                        </div>
+                        {aiResults.output_flags.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Output Flags</p>
+                            <div className="flex flex-wrap gap-2">
+                              {aiResults.output_flags.map((flag) => (
+                                <span key={flag} className="px-3 py-1 bg-amber-950/50 text-amber-300 rounded text-xs font-bold border border-amber-900/50">
+                                  {flag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
