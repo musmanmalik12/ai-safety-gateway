@@ -15,13 +15,17 @@ type AIProcessRequest struct {
 // AIProcessResult represents the complete AI safety gateway response
 type AIProcessResult struct {
 	Decision        string   `json:"decision"`               // ALLOW, FLAG, BLOCK
+	DecisionReason  string   `json:"decision_reason"`        // human-readable explanation
 	RiskLevel       string   `json:"risk_level"`             // low, medium, high
+	RiskScore       int      `json:"risk_score"`             // 0-100 numeric severity
 	Categories      []string `json:"categories"`             // PII, PCI, HR, SECRET
 	Flags           []string `json:"flags"`                  // ssn, email, credit_card, phone, etc
+	Reasoning       []string `json:"reasoning"`              // detailed reasons for flags
 	SanitizedPrompt string   `json:"sanitized_prompt"`       // redacted user input
 	AIResponse      string   `json:"ai_response"`            // simulated AI response
 	RequestID       string   `json:"request_id"`             // for logging/tracing
 	OutputRiskLevel string   `json:"output_risk_level"`      // risk level of AI response
+	OutputRiskScore int      `json:"output_risk_score"`      // 0-100 numeric severity of output
 	OutputFlags     []string `json:"output_flags"`           // flags found in output
 	BlockReason     string   `json:"block_reason,omitempty"` // reason if BLOCK decision
 }
@@ -80,15 +84,32 @@ func ProcessWithAISafety(prompt string, requestID string) AIProcessResult {
 		Flags:       []string{},
 		Categories:  []string{},
 		OutputFlags: []string{},
+		Reasoning:   []string{},
 	}
 
 	// Step 1: Scan input prompt for compliance issues
 	scanResult := compliance.ScanText(prompt)
 
 	result.RiskLevel = scanResult.RiskLevel
+	result.RiskScore = scanResult.RiskScore
 	result.Flags = scanResult.Flags
 	result.Categories = scanResult.Categories
 	result.Decision = scanResult.Decision
+	result.Reasoning = scanResult.Reasoning
+
+	// Generate human-readable decision reason
+	if len(result.Flags) > 0 {
+		switch result.Decision {
+		case "BLOCK":
+			result.DecisionReason = "Sensitive data detected; request blocked for policy compliance"
+		case "FLAG":
+			result.DecisionReason = "Sensitive personal data detected; redaction applied before processing"
+		default:
+			result.DecisionReason = "No compliance issues detected"
+		}
+	} else {
+		result.DecisionReason = "Request approved for processing"
+	}
 
 	// Step 2: Decision handling - BLOCK decision
 	if scanResult.Decision == "BLOCK" {
@@ -113,6 +134,7 @@ func ProcessWithAISafety(prompt string, requestID string) AIProcessResult {
 	// Step 5: Scan AI response for compliance issues (output filtering)
 	outputScanResult := compliance.ScanText(result.AIResponse)
 	result.OutputRiskLevel = outputScanResult.RiskLevel
+	result.OutputRiskScore = outputScanResult.RiskScore
 	result.OutputFlags = outputScanResult.Flags
 
 	// If output has issues, redact them too

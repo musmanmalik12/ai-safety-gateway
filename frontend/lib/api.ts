@@ -37,13 +37,17 @@ export interface AIProcessRequest {
 
 export interface AIProcessResult {
   decision: 'ALLOW' | 'FLAG' | 'BLOCK';
+  decision_reason: string;
   risk_level: 'low' | 'medium' | 'high';
+  risk_score: number;
   categories: string[];
   flags: string[];
+  reasoning: string[];
   sanitized_prompt: string;
   ai_response: string;
   request_id: string;
   output_risk_level: 'low' | 'medium' | 'high';
+  output_risk_score: number;
   output_flags: string[];
   block_reason?: string;
 }
