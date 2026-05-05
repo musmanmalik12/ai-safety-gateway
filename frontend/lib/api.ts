@@ -31,6 +31,27 @@ export interface ScanStatus {
   results?: ScanResult;
 }
 
+export interface AIProcessRequest {
+  prompt: string;
+}
+
+export interface AIProcessResult {
+  decision: 'ALLOW' | 'FLAG' | 'BLOCK';
+  decision_reason: string;
+  risk_level: 'low' | 'medium' | 'high';
+  risk_score: number;
+  categories: string[];
+  flags: string[];
+  reasoning: string[];
+  sanitized_prompt: string;
+  ai_response: string;
+  request_id: string;
+  output_risk_level: 'low' | 'medium' | 'high';
+  output_risk_score: number;
+  output_flags: string[];
+  block_reason?: string;
+}
+
 export const scanAPI = {
   /**
    * Submit text for compliance scanning
@@ -47,6 +68,17 @@ export const scanAPI = {
    */
   async getScanStatus(jobId: string): Promise<ScanStatus> {
     const response = await axios.get(`${API_BASE_URL}/scan/${jobId}`);
+    return response.data;
+  },
+
+  /**
+   * Process text with AI Safety Gateway
+   * Scans input, redacts sensitive data, generates AI response, and scans output
+   */
+  async processWithAISafety(prompt: string): Promise<AIProcessResult> {
+    const response = await axios.post(`${API_BASE_URL}/ai/process`, {
+      prompt: prompt,
+    });
     return response.data;
   },
 

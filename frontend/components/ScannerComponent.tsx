@@ -1,30 +1,103 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { scanAPI, ScanResult } from '../lib/api';
+import { scanAPI, AIProcessResult } from '../lib/api';
 
 interface Alert {
   type: 'success' | 'error';
   message: string;
 }
 
+interface Sample {
+  label: string;
+  text: string;
+  expectedDecision: string;
+  emoji: string;
+  color: string;
+}
+
 export default function ScannerComponent() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [alert, setAlert] = useState<Alert | null>(null);
-  const [results, setResults] = useState<ScanResult | null>(null);
-  const [scanStatus, setScanStatus] = useState<string>('');
-  const [jobId, setJobId] = useState<string>('');
+  const [results, setResults] = useState<AIProcessResult | null>(null);
   const [isSystemOperational, setIsSystemOperational] = useState(true);
 
-  const samples = {
-    1: 'Please contact me at john.doe@company.com or call 555-123-4567. My SSN is 123-45-6789.',
-    2: 'Customer payment info: Credit Card 4532-1234-5678-9012, Expires 12/25',
-    3: 'Confidential: Employee salary information and personal identification numbers stored in database.',
-  };
+  // Comprehensive sample data (10 samples)
+  const samples: Sample[] = [
+    {
+      label: 'Clean Request',
+      text: 'Please summarize this project proposal and provide key recommendations.',
+      expectedDecision: 'ALLOW',
+      emoji: '✓',
+      color: 'from-emerald-600 to-emerald-700',
+    },
+    {
+      label: 'Email Detection',
+      text: 'Contact me at john.doe@company.com for more information.',
+      expectedDecision: 'FLAG',
+      emoji: '@',
+      color: 'from-amber-600 to-amber-700',
+    },
+    {
+      label: 'Phone Detection',
+      text: 'You can reach me at 555-123-4567 for urgent matters.',
+      expectedDecision: 'FLAG',
+      emoji: '📞',
+      color: 'from-amber-600 to-amber-700',
+    },
+    {
+      label: 'SSN Detection',
+      text: 'My Social Security Number is 123-45-6789 for verification.',
+      expectedDecision: 'BLOCK',
+      emoji: '🔴',
+      color: 'from-red-600 to-red-700',
+    },
+    {
+      label: 'Credit Card',
+      text: 'Please charge my card 4111 1111 1111 1111 for this purchase.',
+      expectedDecision: 'BLOCK',
+      emoji: '💳',
+      color: 'from-red-600 to-red-700',
+    },
+    {
+      label: 'Salary Data',
+      text: 'My annual salary is $150,000 and I work in finance department.',
+      expectedDecision: 'FLAG',
+      emoji: '💰',
+      color: 'from-amber-600 to-amber-700',
+    },
+    {
+      label: 'API Key',
+      text: 'Use this API key for authentication: sk-abc1234567890def1234567890',
+      expectedDecision: 'BLOCK',
+      emoji: '🔑',
+      color: 'from-red-600 to-red-700',
+    },
+    {
+      label: 'Mixed Sensitive Data',
+      text: 'John Doe (SSN: 123-45-6789) at john@acme.com, phone 555-0123. Salary: $120,000.',
+      expectedDecision: 'BLOCK',
+      emoji: '⚠️',
+      color: 'from-red-600 to-red-700',
+    },
+    {
+      label: 'Multiple PIIs',
+      text: 'Email me at sarah@example.com or call 415-555-0100. My address is 123 Main St.',
+      expectedDecision: 'FLAG',
+      emoji: '📋',
+      color: 'from-amber-600 to-amber-700',
+    },
+    {
+      label: 'Confidential Request',
+      text: 'Process my confidential compensation review meeting notes.',
+      expectedDecision: 'FLAG',
+      emoji: '🔒',
+      color: 'from-amber-600 to-amber-700',
+    },
+  ];
 
   useEffect(() => {
-    // Check system health on mount
     const checkHealth = async () => {
       const health = await scanAPI.checkHealth();
       setIsSystemOperational(!!health);
@@ -37,50 +110,30 @@ export default function ScannerComponent() {
     setTimeout(() => setAlert(null), 5000);
   };
 
-  const loadSample = (sampleNum: keyof typeof samples) => {
-    setInputText(samples[sampleNum]);
-  };
-
-  const clearForm = () => {
-    setInputText('');
+  const loadSample = (sample: Sample) => {
+    setInputText(sample.text);
     setResults(null);
-    setJobId('');
-    setScanStatus('');
   };
 
-  const pollResults = async (id: string) => {
-    let attempts = 0;
-    const maxAttempts = 30;
-
-    const poll = async () => {
-      try {
-        const status = await scanAPI.getScanStatus(id);
-        setScanStatus(status.status);
-
-        if (status.results) {
-          setResults(status.results);
-          showAlert('Analysis complete', 'success');
-          setIsLoading(false);
-          return;
-        }
-
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 1000);
-        } else {
-          showAlert('Scan timeout', 'error');
-          setIsLoading(false);
-        }
-      } catch (error) {
-        showAlert('Error fetching results', 'error');
-        setIsLoading(false);
-      }
-    };
-
-    poll();
+  const generateRandomTest = () => {
+    const templates = [
+      'Let me schedule a meeting for tomorrow at 2 PM',
+      'My contact is email@domain.com',
+      'Call me at 555-123-4567',
+      'Employee salary: $75,000 annual',
+      'SSN is 987-65-4321',
+      'Card number: 4111 2222 3333 4444',
+      'Here is my API key: sk_test_1234567890abcdef',
+      'IP Address: 192.168.1.1',
+      'User: john@gmail.com, pass: SecurePass123',
+      'Meeting with HR about compensation and benefits review',
+    ];
+    const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
+    setInputText(randomTemplate);
+    setResults(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleProcess = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedText = inputText.trim();
@@ -93,14 +146,32 @@ export default function ScannerComponent() {
     setResults(null);
 
     try {
-      const response = await scanAPI.submitScan(trimmedText);
-      setJobId(response.job_id);
-      setScanStatus('queued');
-      pollResults(response.job_id);
-    } catch (error) {
-      showAlert('Failed to submit scan', 'error');
+      const result = await scanAPI.processWithAISafety(trimmedText);
+      setResults(result);
+
+      if (result.decision === 'BLOCK') {
+        showAlert(`🚫 REQUEST BLOCKED: ${result.decision_reason}`, 'error');
+      } else if (result.decision === 'FLAG') {
+        showAlert(`⚠️ FLAGGED: ${result.decision_reason}`, 'success');
+      } else {
+        showAlert(`✅ ALLOWED: ${result.decision_reason}`, 'success');
+      }
+    } catch (error: any) {
+      console.error('Error:', error);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        'Unknown error';
+      showAlert(`Failed: ${errorMessage}`, 'error');
+    } finally {
       setIsLoading(false);
     }
+  };
+
+  const clearForm = () => {
+    setInputText('');
+    setResults(null);
   };
 
   const getRiskColor = (level: string) => {
@@ -112,20 +183,20 @@ export default function ScannerComponent() {
       case 'high':
         return 'text-red-700 bg-red-50 border border-red-200';
       default:
-        return 'text-slate-700 bg-slate-50 border border-slate-200';
+        return 'text-slate-700 bg-slate-50';
     }
   };
 
   const getDecisionColor = (decision: string) => {
     switch (decision) {
       case 'ALLOW':
-        return 'bg-gradient-to-r from-emerald-50 to-emerald-100 border border-emerald-300 text-emerald-900';
+        return 'from-emerald-600 to-emerald-700';
       case 'FLAG':
-        return 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-300 text-amber-900';
+        return 'from-amber-600 to-amber-700';
       case 'BLOCK':
-        return 'bg-gradient-to-r from-red-50 to-red-100 border border-red-300 text-red-900';
+        return 'from-red-600 to-red-700';
       default:
-        return 'bg-slate-50 border border-slate-300 text-slate-900';
+        return 'from-slate-600 to-slate-700';
     }
   };
 
@@ -135,19 +206,19 @@ export default function ScannerComponent() {
       <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-8 py-5 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-              SC
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+              🛡️
             </div>
             <div>
               <h1 className="text-2xl font-black text-white tracking-tight">
-                ScanCompliant
+                AI Safety Gateway
               </h1>
-              <p className="text-xs text-slate-400 font-medium tracking-widest">COMPLIANCE SCANNER</p>
+              <p className="text-xs text-slate-400 font-medium tracking-widest">UNIFIED COMPLIANCE PIPELINE</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full ${isSystemOperational ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 'bg-red-500 shadow-lg shadow-red-500/50'}`}></div>
-            <span className="text-sm text-slate-300">{isSystemOperational ? 'System operational' : 'System offline'}</span>
+            <span className="text-sm text-slate-300">{isSystemOperational ? 'Operational' : 'Offline'}</span>
           </div>
         </div>
       </header>
@@ -157,43 +228,35 @@ export default function ScannerComponent() {
         {/* Hero Section */}
         <div className="mb-12">
           <div className="inline-block mb-6">
-            <span className="px-4 py-2 rounded-full bg-red-950/40 border border-red-900/50 text-red-300 text-sm font-semibold tracking-wider">
-              ENTERPRISE COMPLIANCE
+            <span className="px-4 py-2 rounded-full bg-purple-950/40 border border-purple-900/50 text-purple-300 text-sm font-semibold tracking-wider">
+              UNIFIED PROCESSING
             </span>
           </div>
           <h2 className="text-5xl md:text-6xl font-black text-white mb-6 leading-tight">
-            Real-time Risk Detection
+            Compliance-First AI Processing
           </h2>
           <p className="text-xl text-slate-300 max-w-2xl leading-relaxed">
-            Analyze text for sensitive data, compliance violations, and regulatory risks with institutional-grade accuracy
+            Single unified pipeline that scans, validates, and secures text through policy enforcement before AI processing.
           </p>
         </div>
 
-        {/* Feature Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-red-500/30 transition-all hover:shadow-2xl hover:shadow-red-500/10">
-            <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <span className="text-white font-bold">PII</span>
+        {/* Pipeline Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-16">
+          {[
+            { step: '1', title: 'Input Scan', icon: '📥' },
+            { step: '2', title: 'Compliance Check', icon: '✓' },
+            { step: '3', title: 'Sanitization', icon: '🔒' },
+            { step: '4', title: 'AI Response', icon: '🤖' },
+          ].map((item) => (
+            <div
+              key={item.step}
+              className="bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 border border-slate-700/50 text-center hover:border-purple-500/30 transition-all"
+            >
+              <div className="text-3xl mb-2">{item.icon}</div>
+              <div className="text-sm font-bold text-purple-400 mb-2">Step {item.step}</div>
+              <div className="text-sm text-slate-300">{item.title}</div>
             </div>
-            <h3 className="text-lg font-bold text-white mb-3">Personal Data Detection</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">Identifies SSNs, credit cards, emails, phone numbers, and IP addresses with precision</p>
-          </div>
-          
-          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-red-500/30 transition-all hover:shadow-2xl hover:shadow-red-500/10">
-            <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <span className="text-white font-bold">Risk</span>
-            </div>
-            <h3 className="text-lg font-bold text-white mb-3">Risk Assessment</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">Detects compliance violations and policy breaches with intelligent classification</p>
-          </div>
-          
-          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-red-500/30 transition-all hover:shadow-2xl hover:shadow-red-500/10">
-            <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <span className="text-white font-bold">Speed</span>
-            </div>
-            <h3 className="text-lg font-bold text-white mb-3">Real-Time Processing</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">Instant feedback on sensitive data and compliance issues with sub-second latency</p>
-          </div>
+          ))}
         </div>
 
         {/* Main Card */}
@@ -213,57 +276,66 @@ export default function ScannerComponent() {
 
           {/* Form Section */}
           <div className="p-8 md:p-12">
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleProcess} className="space-y-8">
               <div>
-                <label className="block text-sm font-bold text-white mb-4 tracking-wide">CONTENT TO ANALYZE</label>
+                <label className="block text-sm font-bold text-white mb-4 tracking-wide">
+                  TEXT TO PROCESS
+                </label>
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Paste your text here for compliance analysis..."
-                  className="w-full min-h-56 p-6 bg-slate-900/50 border-2 border-slate-600/30 rounded-2xl font-mono text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 transition-all resize-none"
+                  placeholder="Enter text for compliance analysis and AI processing..."
+                  className="w-full min-h-56 p-6 bg-slate-900/50 border-2 border-slate-600/30 rounded-2xl font-mono text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
                 />
 
                 {/* Sample Buttons */}
-                <div className="mt-6 p-6 bg-slate-900/30 rounded-2xl border border-slate-600/20 flex flex-wrap gap-3 items-center">
-                  <span className="text-sm font-bold text-slate-300 tracking-wide mr-2">SAMPLE DATA:</span>
-                  <button
-                    type="button"
-                    onClick={() => loadSample(1)}
-                    className="px-4 py-2 bg-slate-700/50 hover:bg-red-600 text-slate-100 hover:text-white border border-slate-600 hover:border-red-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:shadow-lg hover:shadow-red-500/20"
-                  >
-                    Personal Info
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadSample(2)}
-                    className="px-4 py-2 bg-slate-700/50 hover:bg-red-600 text-slate-100 hover:text-white border border-slate-600 hover:border-red-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:shadow-lg hover:shadow-red-500/20"
-                  >
-                    Payment Data
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadSample(3)}
-                    className="px-4 py-2 bg-slate-700/50 hover:bg-red-600 text-slate-100 hover:text-white border border-slate-600 hover:border-red-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:shadow-lg hover:shadow-red-500/20"
-                  >
-                    Salary Info
-                  </button>
+                <div className="mt-6 p-6 bg-slate-900/30 rounded-2xl border border-slate-600/20 space-y-4">
+                  <div>
+                    <p className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-3">
+                      📚 Test Samples (10 scenarios)
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      {samples.map((sample, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => loadSample(sample)}
+                          className={`px-3 py-2 bg-gradient-to-r ${sample.color} hover:shadow-lg hover:shadow-${sample.color.split('-')[1]}-500/30 text-white border border-slate-600 rounded-lg text-xs font-bold tracking-wider transition-all`}
+                          title={`${sample.emoji} ${sample.label} - Expected: ${sample.expectedDecision}`}
+                        >
+                          {sample.emoji} {sample.label.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-600/20 pt-4">
+                    <button
+                      type="button"
+                      onClick={generateRandomTest}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white border border-indigo-500 rounded-lg text-xs font-bold tracking-wider transition-all hover:shadow-lg hover:shadow-indigo-500/30"
+                    >
+                      🎲 Generate Random Test
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-3 pt-6">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-slate-700 disabled:to-slate-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:shadow-red-500/30 flex items-center justify-center gap-2 uppercase tracking-wider text-sm"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-slate-700 disabled:to-slate-700 text-white font-bold py-4 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:shadow-purple-500/30 flex items-center justify-center gap-2 uppercase tracking-wider text-sm"
                 >
                   {isLoading && <span className="spinner" />}
-                  {isLoading ? 'Analyzing...' : 'Scan for Compliance'}
+                  {isLoading ? '⚙️ Processing...' : '🛡️ Analyze & Process'}
                 </button>
                 <button
                   type="button"
                   onClick={clearForm}
-                  className="px-8 bg-slate-700/50 hover:bg-slate-600 text-slate-100 font-bold rounded-xl transition-all border border-slate-600 hover:border-slate-500 uppercase tracking-wider text-sm"
+                  disabled={isLoading}
+                  className="px-6 bg-slate-700/50 hover:bg-slate-600 text-slate-200 font-bold py-4 rounded-xl transition-all disabled:opacity-50"
                 >
                   Clear
                 </button>
@@ -271,137 +343,164 @@ export default function ScannerComponent() {
             </form>
 
             {/* Results Section */}
-            {(results || isLoading) && (
-              <div className="mt-16 pt-12 border-t border-slate-700/50">
-                <h3 className="text-2xl font-black text-white mb-8 tracking-tight">ANALYSIS RESULTS</h3>
+            {results && (
+              <div className="mt-12 border-t border-slate-600/20 pt-12 space-y-6">
+                <h3 className="text-2xl font-bold text-white mb-6">Pipeline Execution Results</h3>
 
-                <div className="space-y-6">
-                  {/* Status Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700/50">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Job ID</p>
-                      <p className="font-mono text-lg text-slate-100">{jobId.substring(0, 8)}</p>
+                {/* Decision Panel */}
+                <div
+                  className={`bg-gradient-to-r ${getDecisionColor(results.decision)} p-8 rounded-2xl border border-slate-600/30`}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
+                    <div>
+                      <div className="text-sm font-semibold opacity-80 uppercase tracking-wider">
+                        Decision
+                      </div>
+                      <div className="text-3xl font-black mt-2">{results.decision}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold opacity-80 uppercase tracking-wider">
+                        Risk Level
+                      </div>
+                      <div className="text-3xl font-black mt-2 capitalize">{results.risk_level}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold opacity-80 uppercase tracking-wider">
+                        Risk Score
+                      </div>
+                      <div className="text-3xl font-black mt-2">{results.risk_score}/100</div>
+                    </div>
+                  </div>
+                  <div className="mt-6 text-sm opacity-90">
+                    <strong>Decision Reason:</strong> {results.decision_reason}
+                  </div>
+                </div>
+
+                {/* Flags & Categories */}
+                {results.flags.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                      <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">
+                        🚩 Detected Flags
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {results.flags.map((flag) => (
+                          <span
+                            key={flag}
+                            className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/50 rounded-lg text-xs font-semibold"
+                          >
+                            {flag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700/50">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Status</p>
-                      <div className="flex items-center gap-3">
-                        {isLoading && <span className="spinner" />}
-                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                          scanStatus === 'completed' ? 'bg-emerald-950/50 text-emerald-300' :
-                          scanStatus === 'processing' ? 'bg-blue-950/50 text-blue-300' :
-                          'bg-amber-950/50 text-amber-300'
-                        }`}>
-                          {scanStatus}
-                        </span>
+                    <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                      <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider mb-4">
+                        📂 Categories
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {results.categories.map((cat) => (
+                          <span
+                            key={cat}
+                            className="px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/50 rounded-lg text-xs font-semibold"
+                          >
+                            {cat}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* Results Display */}
-                  {results && (
-                    <>
-                      {/* Risk Level */}
-                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Risk Level</p>
-                        <div className={`inline-block px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-lg ${getRiskColor(results.risk_level)}`}>
-                          {results.risk_level}
+                {/* Reasoning */}
+                {results.reasoning.length > 0 && (
+                  <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+                      📋 Detection Reasoning
+                    </h4>
+                    <ul className="space-y-2">
+                      {results.reasoning.map((reason, idx) => (
+                        <li key={idx} className="text-sm text-slate-300 flex gap-3">
+                          <span className="text-slate-500">•</span>
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Sanitized Prompt (if FLAG) */}
+                {results.decision === 'FLAG' && results.sanitized_prompt && (
+                  <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                    <h4 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-4">
+                      🔒 Step 3: Sanitized Input
+                    </h4>
+                    <p className="text-sm text-slate-300 font-mono bg-slate-900 p-4 rounded border border-slate-600/20">
+                      {results.sanitized_prompt}
+                    </p>
+                  </div>
+                )}
+
+                {/* AI Response (if not BLOCK) */}
+                {results.decision !== 'BLOCK' && results.ai_response && (
+                  <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                    <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">
+                      🤖 Step 4: AI Response
+                    </h4>
+                    <p className="text-sm text-slate-300 font-mono bg-slate-900 p-4 rounded border border-slate-600/20">
+                      {results.ai_response}
+                    </p>
+                  </div>
+                )}
+
+                {/* Output Risk */}
+                {results.output_flags.length > 0 && (
+                  <div className="bg-slate-900/50 border border-slate-600/20 rounded-xl p-6">
+                    <h4 className="text-sm font-bold text-orange-400 uppercase tracking-wider mb-4">
+                      ⚠️ Output Risk Assessment
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-xs text-slate-400">Risk Level</span>
+                        <div className="text-lg font-bold text-orange-300 mt-1">
+                          {results.output_risk_level}
                         </div>
                       </div>
-
-                      {/* Risk Score Bar */}
-                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Risk Score</p>
-                        <div className="flex items-center gap-6">
-                          <div className="flex-1">
-                            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                              <div
-                                className={`h-full transition-all duration-500 ${
-                                  results.risk_score >= 80 ? 'bg-gradient-to-r from-red-600 to-red-500' :
-                                  results.risk_score >= 60 ? 'bg-gradient-to-r from-amber-600 to-amber-500' :
-                                  'bg-gradient-to-r from-emerald-600 to-emerald-500'
-                                }`}
-                                style={{ width: `${results.risk_score}%` }}
-                              />
-                            </div>
-                          </div>
-                          <span className="text-3xl font-black text-white min-w-fit">{results.risk_score}</span>
+                      <div>
+                        <span className="text-xs text-slate-400">Risk Score</span>
+                        <div className="text-lg font-bold text-orange-300 mt-1">
+                          {results.output_risk_score}/100
                         </div>
                       </div>
-
-                      {/* Decision */}
-                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Decision</p>
-                        <span className={`inline-block px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-wider ${getDecisionColor(results.decision)}`}>
-                          {results.decision}
-                        </span>
+                    </div>
+                    {results.output_flags.length > 0 && (
+                      <div className="mt-4">
+                        <span className="text-xs text-slate-400">Flags Found</span>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {results.output_flags.map((flag) => (
+                            <span
+                              key={flag}
+                              className="px-2 py-1 bg-orange-500/20 text-orange-300 border border-orange-500/50 rounded text-xs"
+                            >
+                              {flag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                  </div>
+                )}
 
-                      {/* Categories */}
-                      {results.categories.length > 0 && (
-                        <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Categories</p>
-                          <div className="flex flex-wrap gap-3">
-                            {results.categories.map((cat) => (
-                              <span key={cat} className="px-4 py-2 bg-red-950/50 text-red-300 rounded-lg text-sm font-bold border border-red-900/50 tracking-wide">
-                                {cat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Assessment */}
-                      <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Assessment</p>
-                        <p className="text-slate-200 leading-relaxed text-lg">{results.summary}</p>
-                      </div>
-
-                      {/* Detected Entities */}
-                      {results.labels.length > 0 && (
-                        <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Detected Entities</p>
-                          <ul className="space-y-3">
-                            {results.labels.map((label, idx) => (
-                              <li key={idx} className="flex items-center gap-3 text-slate-200">
-                                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                {label}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Reasoning */}
-                      {results.reasoning.length > 0 && (
-                        <div className="bg-slate-900/50 rounded-xl p-8 border border-slate-700/50">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Reasoning</p>
-                          <ul className="space-y-3">
-                            {results.reasoning.map((reason, idx) => (
-                              <li key={idx} className="flex items-center gap-3 text-slate-300">
-                                <span className="w-2 h-2 bg-slate-500 rounded-full"></span>
-                                {reason}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  )}
+                {/* Request ID */}
+                <div className="text-xs text-slate-500 text-center pt-4">
+                  Request ID: <code>{results.request_id}</code>
                 </div>
               </div>
             )}
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="mt-20 py-12 border-t border-slate-700/50">
-        <div className="max-w-6xl mx-auto px-8 text-center text-slate-400 text-sm">
-          <p>Enterprise compliance scanning for the modern era</p>
-        </div>
-      </footer>
     </div>
   );
 }
-
